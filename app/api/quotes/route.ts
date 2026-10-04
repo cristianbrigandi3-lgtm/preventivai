@@ -35,6 +35,7 @@ export async function POST(req: Request) {
   const counter = company.quoteCounter + 1;
   const year = new Date().getFullYear();
   const number = `${year}-${String(counter).padStart(3, "0")}`;
+  // Scritture sequenziali (niente nested create): compatibile con pooler PgBouncer
   const quote = await prisma.quote.create({
     data: {
       companyId: company.id, customerId, number,
@@ -44,12 +45,14 @@ export async function POST(req: Request) {
       payTerms: body.payTerms || company.defaultPayTerms || null,
       delivery: body.delivery || null, validity: body.validity || null,
       notes: body.notes || null, status: "Bozza",
-      subtotal: t.subtotal, discount: t.discount, vatTotal: t.vatTotal, total: t.total,
-      items: { create: t.lines.map((l) => ({ description: l.description, qty: l.qty, unit: l.unit, unitPrice: l.unitPrice, discountPct: l.discountPct, vatPct: l.vatPct, lineTotal: l.lineTotal })) },
-      followups: { create: {} },
-      events: { create: [{ type: "created", payload: `Preventivo ${number} creato` }] }
+      subtotal: t.subtotal, discount: t.discount, vatTotal: t.vatTotal, total: t.total
     }
   });
+  await prisma.quoteItem.createMany({
+    data: t.lines.map((l) => ({ quoteId: quote.id, description: l.description, qty: l.qty, unit: l.unit, unitPrice: l.unitPrice, discountPct: l.discountPct, vatPct: l.vatPct, lineTotal: l.lineTotal }))
+  });
+  await prisma.followUp.create({ data: { quoteId: quote.id } });
+  await prisma.quoteEvent.create({ data: { quoteId: quote.id, type: "created", payload: `Preventivo ${number} creato` } });
   await prisma.company.update({ where: { id: company.id }, data: { quoteCounter: counter } });
   return NextResponse.json({ id: quote.id });
 }

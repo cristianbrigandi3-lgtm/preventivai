@@ -45,7 +45,8 @@ export default function NewQuote() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ customerId: customerId || null, newCustomer: customerId ? null : nc, subject, description, dueDate: dueDate || null, payTerms, validity, notes, items })
       });
-      const d = await res.json();
+      let d: any = {};
+      try { d = await res.json(); } catch { throw new Error(`Salvataggio fallito (HTTP ${res.status}). Riprova.`); }
       if (!res.ok) throw new Error(d.error || "Errore salvataggio");
       router.push(`/preventivi/${d.id}`);
     } catch (e: any) { setErr(e.message); setSaving(false); }

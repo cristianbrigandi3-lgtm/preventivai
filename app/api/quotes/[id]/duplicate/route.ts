@@ -16,11 +16,15 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
       companyId: q.companyId, customerId: q.customerId, number, publicToken: crypto.randomBytes(12).toString("hex"),
       subject: q.subject, description: q.description, dueDate: q.dueDate, payTerms: q.payTerms,
       delivery: q.delivery, validity: q.validity, notes: q.notes, status: "Bozza",
-      subtotal: q.subtotal, discount: q.discount, vatTotal: q.vatTotal, total: q.total,
-      items: { create: q.items.map((i) => ({ description: i.description, qty: i.qty, unit: i.unit, unitPrice: i.unitPrice, discountPct: i.discountPct, vatPct: i.vatPct, lineTotal: i.lineTotal })) },
-      followups: { create: {} }
+      subtotal: q.subtotal, discount: q.discount, vatTotal: q.vatTotal, total: q.total
     }
   });
+  if (q.items.length > 0) {
+    await prisma.quoteItem.createMany({
+      data: q.items.map((i) => ({ quoteId: dup.id, description: i.description, qty: i.qty, unit: i.unit, unitPrice: i.unitPrice, discountPct: i.discountPct, vatPct: i.vatPct, lineTotal: i.lineTotal }))
+    });
+  }
+  await prisma.followUp.create({ data: { quoteId: dup.id } });
   await prisma.company.update({ where: { id: q.companyId }, data: { quoteCounter: counter } });
   redirect(`/preventivi/${dup.id}`);
 }
