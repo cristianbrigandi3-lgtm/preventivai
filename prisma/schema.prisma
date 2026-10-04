@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+  // Per produzione Postgres: provider = "postgresql" + DATABASE_URL postgres
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  businessName String?
+  piva         String?
+  company      Company?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([email])
+}
+
+model Company {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String   @default("")
+  logoUrl          String?
+  address          String?
+  piva             String?
+  cf               String?
+  phone            String?
+  email            String?
+  website          String?
+  iban             String?
+  defaultPayTerms  String?
+  onboarded        Boolean  @default(false)
+  quoteCounter     Int      @default(0)
+  // Default globali follow-up (Fase 3)
+  followupEnabled  Boolean  @default(true)
+  followupDay1     Int      @default(2)
+  followupDay2     Int      @default(5)
+  followupText1    String?
+  followupText2    String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  customers Customer[]
+  quotes    Quote[]
+}
+
+model Customer {
+  id        String    @id @default(cuid())
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  firstName String?
+  lastName  String?
+  business  String?
+  email     String?
+  phone     String?
+  address   String?
+  piva      String?
+  cf        String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  quotes    Quote[]
+
+  @@index([companyId])
+  @@index([companyId, business])
+}
+
+model Quote {
+  id          String      @id @default(cuid())
+  companyId   String
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customerId  String?
+  customer    Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  number      String
+  publicToken String      @unique @default(cuid())
+  date        DateTime    @default(now())
+  dueDate     DateTime?
+  subject     String      @default("")
+  description String?
+  status      String      @default("Bozza") // Bozza|Inviato|Visualizzato|Accettato|Rifiutato|Scaduto
+  payTerms    String?
+  delivery    String?
+  validity    String?
+  notes       String?
+  customTerms String?
+  subtotal    Float       @default(0)
+  discount    Float       @default(0)
+  vatTotal    Float       @default(0)
+  total       Float       @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  items    QuoteItem[]
+  views    QuoteView[]
+  events   QuoteEvent[]
+  emails   EmailLog[]
+  followups FollowUp?
+
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+  @@unique([companyId, number])
+}
+
+model QuoteItem {
+  id          String  @id @default(cuid())
+  quoteId     String
+  quote       Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  description String
+  qty         Float   @default(1)
+  unit        String  @default("pz")
+  unitPrice   Float   @default(0)
+  discountPct Float   @default(0)
+  vatPct      Float   @default(22)
+  lineTotal   Float   @default(0)
+
+  @@index([quoteId])
+}
+
+model QuoteView {
+  id        String   @id @default(cuid())
+  quoteId   String
+  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  viewedAt  DateTime @default(now())
+  ipHash    String?
+  userAgent String?
+
+  @@index([quoteId])
+}
+
+model QuoteEvent {
+  id        String   @id @default(cuid())
+  quoteId   String
+  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  type      String
+  payload   String?
+  createdAt DateTime @default(now())
+
+  @@index([quoteId])
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  quoteId   String?
+  quote     Quote?   @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  to        String
+  subject   String
+  body      String?
+  status    String   @default("queued")
+  createdAt DateTime @default(now())
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  plan      String   @default("FREE") // FREE|PRO|BUSINESS
+  stripeId  String?
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FollowUp {
+  id         String   @id @default(cuid())
+  quoteId    String   @unique
+  quote      Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  enabled    Boolean  @default(true)
+  day1       Int      @default(2)
+  day2       Int      @default(5)
+  text1      String?
+  text2      String?
+  sent1      Boolean  @default(false)
+  sent2      Boolean  @default(false)
+  updatedAt  DateTime @updatedAt
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
