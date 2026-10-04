@@ -22,19 +22,20 @@ export async function register(form: FormData) {
     email: emailSchema,
     password: z.string().min(8).max(128),
     businessName: z.string().trim().min(1).max(150),
-    piva: z.string().trim().max(20).optional()
+    piva: z.string().trim().max(20).optional(),
+    terms: z.literal("on", { errorMap: () => ({ message: "Devi accettare Termini e Privacy" }) })
   }).safeParse({
     name: String(form.get("name") || ""), email: String(form.get("email") || ""),
     password: String(form.get("password") || ""), businessName: String(form.get("businessName") || ""),
-    piva: String(form.get("piva") || "")
+    piva: String(form.get("piva") || ""), terms: String(form.get("terms") || "")
   });
-  if (!parsed.success) redirect("/registrati?err=Dati+non+validi:+email+non+valida+o+password+troppo+corta");
+  if (!parsed.success) redirect("/registrati?err=Devi+accettare+Termini+e+Privacy+Policy");
   const { name, email, password, businessName } = parsed.data;
   const piva = parsed.data.piva?.trim() || null;
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists) redirect("/registrati?err=Email+gia+registrata");
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({ data: { name, email, passwordHash, businessName, piva } });
+  const user = await prisma.user.create({ data: { name, email, passwordHash, businessName, piva, acceptedTermsAt: new Date() } });
   await prisma.company.create({ data: { userId: user.id, name: businessName, piva, email } });
   await prisma.subscription.create({ data: { userId: user.id, plan: "FREE" } });
   await createSession(user.id);

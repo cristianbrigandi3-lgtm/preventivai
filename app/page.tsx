@@ -48,6 +48,14 @@ export default function Home() {
           <Link href="/registrati" className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold">Inizia gratis ora</Link>
         </div>
       </section>
+      <footer className="border-t mt-10">
+        <div className="mx-auto max-w-6xl px-4 py-6 flex flex-wrap gap-4 text-sm text-slate-500">
+          <span>© 2026 PreventivAI</span>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/termini">Termini</Link>
+          <Link href="/cookie">Cookie</Link>
+        </div>
+      </footer>
     </div>
   );
 }

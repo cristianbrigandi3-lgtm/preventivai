@@ -35,6 +35,10 @@ export function RegisterForm() {
         <input name="password" type="password" required placeholder="Password (min 8)" className={inputCls} />
         <input name="businessName" required placeholder="Nome attività" className={inputCls} />
         <input name="piva" placeholder="P.IVA (opzionale)" className={inputCls} />
+        <label className="flex items-start gap-2 text-xs text-slate-600">
+          <input type="checkbox" name="terms" required className="mt-0.5" />
+          <span>Ho letto e accetto <a className="text-indigo-600" href="/termini">Termini</a> e <a className="text-indigo-600" href="/privacy">Privacy Policy</a></span>
+        </label>
         <button className={btnPrimary}>Registrati</button>
       </form>
     </Suspense>

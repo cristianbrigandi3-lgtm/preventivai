@@ -15,6 +15,7 @@ model User {
   passwordHash String
   businessName String?
   piva         String?
+  acceptedTermsAt DateTime?
   company      Company?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
