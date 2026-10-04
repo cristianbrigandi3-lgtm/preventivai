@@ -23,7 +23,17 @@ export default function NewQuote() {
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { fetch("/api/quotes").then((r) => r.json()).then((d) => setCustomers(d.customers || [])); }, []);
+  useEffect(() => {
+    fetch("/api/quotes", { cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) return { customers: [] };
+        const ct = r.headers.get("content-type") || "";
+        if (!ct.includes("json")) return { customers: [] };
+        return r.json().catch(() => ({ customers: [] }));
+      })
+      .then((d) => setCustomers(d.customers || []))
+      .catch(() => setCustomers([]));
+  }, []);
   const t = useMemo(() => calcTotals(items.map((i) => ({ ...i, qty: +i.qty || 0, unitPrice: +i.unitPrice || 0, discountPct: +i.discountPct || 0, vatPct: +i.vatPct || 22 }))), [items]);
 
   const upd = (idx: number, k: keyof Item, v: any) => setItems((arr) => arr.map((it, i) => (i === idx ? { ...it, [k]: v } : it)));
