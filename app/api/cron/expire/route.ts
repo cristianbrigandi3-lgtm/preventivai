@@ -14,6 +14,15 @@ function authorized(req: Request): boolean {
 
 export async function GET(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  try {
+    return await runExpire();
+  } catch (e: any) {
+    // DEBUG temporaneo: rimosso dopo la diagnosi
+    return NextResponse.json({ debug: String(e?.message || e).slice(0, 300), code: e?.code }, { status: 500 });
+  }
+}
+
+async function runExpire() {
   const now = new Date();
   const expired = await prisma.quote.findMany({ where: { status: { in: ["Inviato", "Visualizzato"] }, dueDate: { lt: now }, deletedAt: null } });
   for (const q of expired) {
