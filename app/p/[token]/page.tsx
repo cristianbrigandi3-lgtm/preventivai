@@ -12,6 +12,10 @@ function ipHash(ip: string, token: string) {
 async function decide(form: FormData) {
   "use server";
   const { headers: h } = await import("next/headers");
+  const { rateLimit: rlFn } = await import("@/lib/ratelimit");
+  const hh0 = h();
+  const ip0 = hh0.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!rlFn(`decide:${ip0}`, 10, 60000).ok) return;
   const { prisma: db } = await import("@/lib/db");
   const token = String(form.get("token"));
   const choice = String(form.get("choice"));

@@ -4,16 +4,20 @@ import { prisma } from "@/lib/db";
 import { getUserId } from "@/lib/auth";
 import { renderQuotePdf } from "@/lib/pdf";
 import { smtpConfigured, transporter, quoteEmailTemplate } from "@/lib/email";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
+import { z } from "zod";
 import { eur } from "@/lib/quotes";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const rl = rateLimit(`send:${clientIp(req)}`, 10, 60000);
+  if (!rl.ok) return NextResponse.json({ error: "Troppe richieste, riprova tra poco" }, { status: 429 });
   const uid = await getUserId();
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => ({}));
   const q = await prisma.quote.findFirst({ where: { id: params.id }, include: { customer: true, company: true, items: true } });
   if (!q || q.company.userId !== uid) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const to = String(body.to || q.customer?.email || "").trim();
-  if (!to) return NextResponse.json({ error: "Email cliente mancante: inseriscila nella scheda cliente" }, { status: 400 });
+  if (!z.string().email().max(254).safeParse(to).success) return NextResponse.json({ error: "Email cliente non valida" }, { status: 400 });
 
   const appUrl = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
   const link = `${appUrl}/p/${q.publicToken}`;

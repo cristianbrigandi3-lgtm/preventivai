@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getUserId } from "@/lib/auth";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
+  const rl = rateLimit(`followup:${clientIp(req)}`, 20, 60000);
+  if (!rl.ok) return NextResponse.json({ error: "Troppe richieste" }, { status: 429 });
   const uid = await getUserId();
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const q = await prisma.quote.findFirst({ where: { id: params.id }, include: { company: true } });

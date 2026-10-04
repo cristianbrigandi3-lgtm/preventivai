@@ -1,17 +1,36 @@
 "use server";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createSession } from "@/lib/auth";
+import { rateLimit } from "@/lib/ratelimit";
+
+const emailSchema = z.string().trim().toLowerCase().email().max(254);
+
+function checkRate(action: string, limit: number, windowMs: number, failUrl: string) {
+  const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const rl = rateLimit(`auth:${action}:${ip}`, limit, windowMs);
+  if (!rl.ok) redirect(`${failUrl}?err=Troppe+richieste.+Riprova+tra+${rl.retryAfter}+secondi`);
+}
 
 export async function register(form: FormData) {
-  const name = String(form.get("name") || "").trim();
-  const email = String(form.get("email") || "").trim().toLowerCase();
-  const password = String(form.get("password") || "");
-  const businessName = String(form.get("businessName") || "").trim();
-  const piva = String(form.get("piva") || "").trim() || null;
-  if (!name || !email || !password || !businessName) redirect("/registrati?err=Campi+obbligatori+mancanti");
-  if (password.length < 8) redirect("/registrati?err=Password+minimo+8+caratteri");
+  checkRate("register", 5, 60000, "/registrati");
+  const parsed = z.object({
+    name: z.string().trim().min(1).max(100),
+    email: emailSchema,
+    password: z.string().min(8).max(128),
+    businessName: z.string().trim().min(1).max(150),
+    piva: z.string().trim().max(20).optional()
+  }).safeParse({
+    name: String(form.get("name") || ""), email: String(form.get("email") || ""),
+    password: String(form.get("password") || ""), businessName: String(form.get("businessName") || ""),
+    piva: String(form.get("piva") || "")
+  });
+  if (!parsed.success) redirect("/registrati?err=Dati+non+validi:+email+non+valida+o+password+troppo+corta");
+  const { name, email, password, businessName } = parsed.data;
+  const piva = parsed.data.piva?.trim() || null;
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists) redirect("/registrati?err=Email+gia+registrata");
   const passwordHash = await bcrypt.hash(password, 10);
@@ -23,6 +42,7 @@ export async function register(form: FormData) {
 }
 
 export async function login(form: FormData) {
+  checkRate("login", 10, 60000, "/login");
   const email = String(form.get("email") || "").trim().toLowerCase();
   const password = String(form.get("password") || "");
   const user = await prisma.user.findUnique({ where: { email } });
@@ -33,7 +53,10 @@ export async function login(form: FormData) {
 }
 
 export async function requestReset(form: FormData) {
-  const email = String(form.get("email") || "").trim().toLowerCase();
+  checkRate("reset", 3, 60000, "/recupero");
+  const raw = String(form.get("email") || "").trim().toLowerCase();
+  if (!emailSchema.safeParse(raw).success) redirect("/recupero?ok=1");
+  const email = raw;
   const user = await prisma.user.findUnique({ where: { email } });
   if (user) {
     const token = Math.random().toString(36).slice(2) + Date.now().toString(36);

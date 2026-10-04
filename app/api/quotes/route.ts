@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getUserId } from "@/lib/auth";
 import { calcTotals } from "@/lib/quotes";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
 import crypto from "crypto";
 
 function custLabel(c: any) { return c.business || `${c.firstName || ""} ${c.lastName || ""}`.trim() || c.email || "Cliente"; }
 
 export async function POST(req: Request) {
+  const rl = rateLimit(`quotes:${clientIp(req)}`, 30, 60000);
+  if (!rl.ok) return NextResponse.json({ error: "Troppe richieste, riprova tra poco" }, { status: 429 });
   const uid = await getUserId();
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const company = await prisma.company.findUnique({ where: { userId: uid } });

@@ -10,7 +10,8 @@ export async function createSession(userId: string) {
     .setIssuedAt()
     .setExpirationTime("7d")
     .sign(secret);
-  cookies().set(COOKIE, token, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
+  const secure = (process.env.APP_URL || "").startsWith("https://") || process.env.NODE_ENV === "production";
+  cookies().set(COOKIE, token, { httpOnly: true, secure, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
 }
 
 export async function getUserId(): Promise<string | null> {
