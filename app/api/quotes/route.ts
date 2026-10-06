@@ -44,27 +44,37 @@ async function createQuote(req: Request) {
     }
   }
   const t = calcTotals(items);
-  const counter = company.quoteCounter + 1;
   const year = new Date().getFullYear();
-  const number = `${year}-${String(counter).padStart(3, "0")}`;
-  // Scritture sequenziali (niente nested create): compatibile con pooler PgBouncer
-  const quote = await prisma.quote.create({
-    data: {
-      companyId: company.id, customerId, number,
-      publicToken: crypto.randomBytes(12).toString("hex"),
-      subject: String(body.subject || ""), description: body.description || null,
-      dueDate: body.dueDate ? new Date(body.dueDate) : null,
-      payTerms: body.payTerms || company.defaultPayTerms || null,
-      delivery: body.delivery || null, validity: body.validity || null,
-      notes: body.notes || null, status: "Bozza",
-      subtotal: t.subtotal, discount: t.discount, vatTotal: t.vatTotal, total: t.total
+  // Retry su collisione numero (P2002): i soft-deleted occupano ancora il numero
+  let quote = null;
+  let counter = company.quoteCounter;
+  for (let attempt = 0; attempt < 5 && !quote; attempt++) {
+    counter = company.quoteCounter + 1 + attempt;
+    const number = `${year}-${String(counter).padStart(3, "0")}`;
+    try {
+      quote = await prisma.quote.create({
+        data: {
+          companyId: company.id, customerId, number,
+          publicToken: crypto.randomBytes(12).toString("hex"),
+          subject: String(body.subject || ""), description: body.description || null,
+          dueDate: body.dueDate ? new Date(body.dueDate) : null,
+          payTerms: body.payTerms || company.defaultPayTerms || null,
+          delivery: body.delivery || null, validity: body.validity || null,
+          notes: body.notes || null, status: "Bozza",
+          subtotal: t.subtotal, discount: t.discount, vatTotal: t.vatTotal, total: t.total
+        }
+      });
+      await prisma.quoteEvent.create({ data: { quoteId: quote.id, type: "created", payload: `Preventivo ${number} creato` } });
+    } catch (e: any) {
+      if (e?.code !== "P2002" || attempt === 4) throw e;
     }
-  });
+  }
+  if (!quote) throw new Error("Impossibile generare un numero univoco");
+  // Scritture sequenziali (niente nested create): compatibile con pooler PgBouncer
   await prisma.quoteItem.createMany({
     data: t.lines.map((l) => ({ quoteId: quote.id, description: l.description, qty: l.qty, unit: l.unit, unitPrice: l.unitPrice, discountPct: l.discountPct, vatPct: l.vatPct, lineTotal: l.lineTotal }))
   });
   await prisma.followUp.create({ data: { quoteId: quote.id } });
-  await prisma.quoteEvent.create({ data: { quoteId: quote.id, type: "created", payload: `Preventivo ${number} creato` } });
   await prisma.company.update({ where: { id: company.id }, data: { quoteCounter: counter } });
   return NextResponse.json({ id: quote.id });
 }
