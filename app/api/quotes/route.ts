@@ -10,6 +10,15 @@ function custLabel(c: any) { return c.business || `${c.firstName || ""} ${c.last
 export async function POST(req: Request) {
   const rl = rateLimit(`quotes:${clientIp(req)}`, 30, 60000);
   if (!rl.ok) return NextResponse.json({ error: "Troppe richieste, riprova tra poco" }, { status: 429 });
+  try {
+    return await createQuote(req);
+  } catch (e: any) {
+    console.error("POST /api/quotes:", e?.code || "", String(e?.message || e).slice(0, 300));
+    return NextResponse.json({ error: "Errore salvataggio", code: String(e?.code || "unknown").slice(0, 20) }, { status: 500 });
+  }
+}
+
+async function createQuote(req: Request) {
   const uid = await getUserId();
   if (!uid) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const company = await prisma.company.findUnique({ where: { userId: uid } });
