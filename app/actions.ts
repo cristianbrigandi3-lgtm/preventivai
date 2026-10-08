@@ -33,10 +33,25 @@ export async function register(form: FormData) {
   if (!parsed.success) redirect("/registrati?err=Devi+accettare+Termini,+Privacy+ed+eta+18+");
   const { name, email, password, businessName } = parsed.data;
   const piva = parsed.data.piva?.trim() || null;
+
+  // Anti-abuso account multipli (Fase anti-bypass piano FREE)
+  const hh = headers();
+  const { createHash } = await import("crypto");
+  const fp = createHash("sha256").update([
+    hh.get("x-forwarded-for")?.split(",")[0]?.trim() || "noip",
+    hh.get("user-agent") || "noua",
+    hh.get("accept-language")?.slice(0, 40) || "nolang"
+  ].join("|")).digest("hex").slice(0, 32);
+  if (piva) {
+    const samePiva = await prisma.user.findFirst({ where: { piva, email: { not: email } } });
+    if (samePiva) redirect("/registrati?err=Questa+P.IVA+risulta+gia+registrata.+Accedi+al+tuo+account.");
+  }
+  const sameDevice = await prisma.user.count({ where: { signupFp: fp } });
+  if (sameDevice >= 2) redirect("/registrati?err=Da+questo+dispositivo+risultano+gia+account+attivi.+Contattaci+per+assistenza.");
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists) redirect("/registrati?err=Email+gia+registrata");
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({ data: { name, email, passwordHash, businessName, piva, acceptedTermsAt: new Date() } });
+  const user = await prisma.user.create({ data: { name, email, passwordHash, businessName, piva, acceptedTermsAt: new Date(), signupFp: fp } });
   await prisma.company.create({ data: { userId: user.id, name: businessName, piva, email } });
   await prisma.subscription.create({ data: { userId: user.id, plan: "FREE" } });
   await createSession(user.id);

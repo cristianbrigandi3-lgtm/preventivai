@@ -16,6 +16,7 @@ model User {
   businessName String?
   piva         String?
   acceptedTermsAt DateTime?
+  signupFp String?
   company      Company?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
