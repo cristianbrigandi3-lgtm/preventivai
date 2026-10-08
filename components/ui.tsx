@@ -15,6 +15,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Link href="/dashboard">Dashboard</Link>
             <Link href="/preventivi/nuovo">Nuovo</Link>
             <Link href="/clienti">Clienti</Link>
+            <Link href="/servizi">Servizi</Link>
             <Link href="/statistiche">Statistiche</Link>
             <Link href="/abbonamento">Piano</Link>
             <Link href="/impostazioni">Impostazioni</Link>

@@ -9,12 +9,22 @@ export default async function Page() {
   if (!uid) redirect("/login");
   const company = await prisma.company.findUnique({ where: { userId: uid } });
   if (!company) redirect("/login");
-  const quotes = await prisma.quote.findMany({ where: { companyId: company.id, deletedAt: null }, include: { customer: true } });
+  const quotes = await prisma.quote.findMany({ where: { companyId: company.id, deletedAt: null }, include: { customer: true, events: true } });
 
   const total = quotes.reduce((a, q) => a + q.total, 0);
   const accepted = quotes.filter((q) => q.status === "Accettato");
   const conv = quotes.length ? Math.round((accepted.length / quotes.length) * 100) : 0;
   const avg = quotes.length ? total / quotes.length : 0;
+
+  // Tempo medio di accettazione (da eventi created -> accettato)
+  const deltas: number[] = [];
+  for (const q of accepted) {
+    const c = q.events.find((e) => e.type === "created");
+    const a = [...q.events].reverse().find((e) => e.type === "accettato");
+    if (c && a) deltas.push((new Date(a.createdAt).getTime() - new Date(c.createdAt).getTime()) / 864e5);
+  }
+  const avgDays = deltas.length ? deltas.reduce((x, y) => x + y, 0) / deltas.length : null;
+  const avgDaysTxt = avgDays === null ? "—" : `${avgDays.toFixed(1)} giorni`;
 
   // Per mese (ultimi 6)
   const byMonth: Record<string, { n: number; v: number }> = {};
@@ -34,8 +44,9 @@ export default async function Page() {
   return (
     <Shell>
       <h1 className="text-2xl font-bold">Statistiche</h1>
+      {quotes.length === 0 && <Card className="mt-3"><p className="text-sm text-slate-600">Non ci sono ancora abbastanza dati. Crea i primi preventivi per vedere le statistiche.</p></Card>}
       <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[["Fatturato potenziale", eur(total)], ["Tasso conversione", `${conv}%`], ["Valore medio", eur(avg)], ["Accettati", `${accepted.length}/${quotes.length}`]].map(([k, v]) => (
+        {[["Fatturato potenziale", eur(total)], ["Tasso conversione", `${conv}%`], ["Valore medio", eur(avg)], ["Accettati", `${accepted.length}/${quotes.length}`], ["Tempo medio accettazione", avgDaysTxt], ["Valore accettati", eur(accepted.reduce((a, q) => a + q.total, 0))]].map(([k, v]) => (
           <Card key={k}><p className="text-xs text-slate-500">{k}</p><p className="text-xl font-bold">{v}</p></Card>
         ))}
       </div>

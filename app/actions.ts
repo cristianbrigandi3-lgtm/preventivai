@@ -60,8 +60,27 @@ export async function requestReset(form: FormData) {
   const email = raw;
   const user = await prisma.user.findUnique({ where: { email } });
   if (user) {
-    const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const { randomBytes } = await import("crypto");
+    const token = randomBytes(32).toString("hex");
+    await prisma.passwordReset.deleteMany({ where: { email } });
     await prisma.passwordReset.create({ data: { email, token, expiresAt: new Date(Date.now() + 3600e3) } });
+    // TODO: inviare email con link ${process.env.APP_URL}/reset/${token} quando SMTP attivo
+    console.log(`[reset] ${email} -> /reset/${token}`);
   }
   redirect("/recupero?ok=1");
+}
+
+export async function confirmReset(form: FormData) {
+  "use server";
+  const { redirect: red } = await import("next/navigation");
+  const token = String(form.get("token") || "");
+  const password = String(form.get("password") || "");
+  if (password.length < 8) red(`/reset/${token}?err=Password+minimo+8+caratteri`);
+  const { prisma: db } = await import("@/lib/db");
+  const pr = await db.passwordReset.findUnique({ where: { token } });
+  if (!pr || pr.expiresAt < new Date()) red("/recupero?err=Link+scaduto+o+non+valido");
+  const passwordHash = await bcrypt.hash(password, 10);
+  await db.user.update({ where: { email: pr!.email }, data: { passwordHash } });
+  await db.passwordReset.delete({ where: { token } });
+  red("/login?ok=Password+aggiornata.+Accedi.");
 }

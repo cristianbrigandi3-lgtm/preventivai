@@ -75,6 +75,8 @@ async function createQuote(req: Request) {
     data: t.lines.map((l) => ({ quoteId: quote.id, description: l.description, qty: l.qty, unit: l.unit, unitPrice: l.unitPrice, discountPct: l.discountPct, vatPct: l.vatPct, lineTotal: l.lineTotal }))
   });
   await prisma.followUp.create({ data: { quoteId: quote.id } });
+  const svcIds = Array.from(new Set(items.map((i: any) => i.serviceId).filter(Boolean))).map(String);
+  if (svcIds.length > 0) await prisma.service.updateMany({ where: { id: { in: svcIds }, companyId: company.id }, data: { useCount: { increment: 1 } } });
   await prisma.company.update({ where: { id: company.id }, data: { quoteCounter: counter } });
   return NextResponse.json({ id: quote.id });
 }

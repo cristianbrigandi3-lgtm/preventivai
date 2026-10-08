@@ -15,8 +15,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     enabled: !!b.enabled,
     day1: Math.max(1, Number(b.day1) || 2),
     day2: Math.max(1, Number(b.day2) || 5),
+    day3: Math.max(1, Number(b.day3) || 10),
     text1: String(b.text1 || "") || null,
-    text2: String(b.text2 || "") || null
+    text2: String(b.text2 || "") || null,
+    text3: String(b.text3 || "") || null
   };
   await prisma.followUp.upsert({ where: { quoteId: q.id }, create: { quoteId: q.id, ...data }, update: data });
   return NextResponse.json({ ok: true });

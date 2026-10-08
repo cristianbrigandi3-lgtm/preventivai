@@ -22,7 +22,7 @@ async function decide(form: FormData) {
   const name = String(form.get("name") || "").trim();
   const email = String(form.get("email") || "").trim();
   if (!name || !email) return;
-  const q = await db.quote.findUnique({ where: { publicToken: token } });
+  const q = await db.quote.findUnique({ where: { publicToken: token }, include: { company: true } });
   if (!q || ["Accettato", "Rifiutato"].includes(q.status)) return;
   const hh = h();
   const ip = hh.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
@@ -32,6 +32,21 @@ async function decide(form: FormData) {
   await db.quoteEvent.create({
     data: { quoteId: q.id, type: status.toLowerCase(), payload: JSON.stringify({ name, email, at: new Date().toISOString(), iphash: ipHash(ip, token), ua: ua.slice(0, 200) }) }
   });
+  // Notifica al professionista (Fase 8)
+  if (q.company.email) {
+    const { smtpConfigured: sc, transporter: tr } = await import("@/lib/email");
+    const txt = status === "Accettato"
+      ? `Buona notizia: ${name} (${email}) ha ACCETTATO il preventivo n. ${q.number} ("${q.subject}").`
+      : `${name} (${email}) ha rifiutato il preventivo n. ${q.number} ("${q.subject}").`;
+    let st = "logged-no-smtp";
+    if (sc()) {
+      try {
+        await tr().sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to: q.company.email, subject: `${status}: preventivo ${q.number}`, text: txt });
+        st = "sent";
+      } catch (e: any) { st = "error: " + String(e?.message || e).slice(0, 200); }
+    }
+    await db.emailLog.create({ data: { quoteId: q.id, to: q.company.email, subject: `${status}: preventivo ${q.number}`, body: txt, status: st } });
+  }
   const { redirect: red } = await import("next/navigation");
   red(`/p/${token}?ok=${status}`);
 }
@@ -39,6 +54,8 @@ async function decide(form: FormData) {
 export default async function Page({ params, searchParams }: { params: { token: string }; searchParams: { ok?: string } }) {
   const q = await prisma.quote.findUnique({ where: { publicToken: params.token }, include: { customer: true, company: true, items: true } });
   if (!q) notFound();
+  const sub = await prisma.subscription.findFirst({ where: { userId: q.company.userId } });
+  const isFree = !sub || sub.plan === "FREE";
 
   if (searchParams.ok) {
     const ok = searchParams.ok === "Accettato";
@@ -64,6 +81,7 @@ export default async function Page({ params, searchParams }: { params: { token: 
   const locked = ["Accettato", "Rifiutato"].includes(q.status);
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
+      {q.company.logoUrl && <img src={q.company.logoUrl} alt="Logo" className="h-12 mb-2 object-contain" />}
       <p className="font-bold text-indigo-700">{q.company.name}</p>
       <p className="text-xs text-slate-500">{[q.company.address, q.company.piva ? `P.IVA ${q.company.piva}` : "", q.company.phone, q.company.email].filter(Boolean).join(" · ")}</p>
       <h1 className="text-2xl font-bold mt-2">Preventivo {q.number} — {q.subject}</h1>
@@ -82,8 +100,7 @@ export default async function Page({ params, searchParams }: { params: { token: 
       {locked ? (
         <p className="mt-4 rounded-xl bg-slate-100 p-3 text-sm text-center">Questo preventivo risulta già <b>{q.status.toLowerCase()}</b>.</p>
       ) : (
-        <form action={decide} className="mt-4 space-y-2">
-          <input type="hidden" name="token" value={q.publicToken} />
+        <form action={decide} className="mt-4 space-y-2">          <input type="hidden" name="token" value={q.publicToken} />
           <input name="name" required placeholder="Il tuo nome e cognome" className="w-full rounded-xl border px-3 py-2 text-sm" />
           <input name="email" type="email" required placeholder="La tua email" className="w-full rounded-xl border px-3 py-2 text-sm" />
           <label className="flex items-start gap-2 text-xs text-slate-600">
@@ -96,6 +113,7 @@ export default async function Page({ params, searchParams }: { params: { token: 
           </div>
         </form>
       )}
+      {isFree && <p className="mt-6 text-center text-xs text-slate-400">Creato con PreventivAI</p>}
     </div>
   );
 }

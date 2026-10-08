@@ -4,6 +4,9 @@ export const DEFAULT_FOLLOWUP_1 = (n: string, num: string, link: string) =>
 export const DEFAULT_FOLLOWUP_2 = (n: string, num: string, link: string) =>
   `Buongiorno, riporto alla sua attenzione il preventivo n. ${num} ("${n}"). La proposta resta valida, resto disponibile. Link: ${link}`;
 
+export const DEFAULT_FOLLOWUP_3 = (n: string, num: string, link: string) =>
+  `Buongiorno, le ricordo che il preventivo n. ${num} ("${n}") è ancora disponibile. Resto a disposizione. Link: ${link}`;
+
 export function daysSince(date: Date): number {
   return Math.floor((Date.now() - date.getTime()) / 86400000);
 }

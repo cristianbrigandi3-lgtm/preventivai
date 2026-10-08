@@ -11,8 +11,8 @@ export default function Home() {
         </div>
       </header>
       <section className="mx-auto max-w-6xl px-4 py-16 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Crea preventivi professionali in pochi minuti.</h1>
-        <p className="mt-4 text-lg text-slate-600">Genera, invia e gestisci i tuoi preventivi senza perdere tempo con Excel e Word.</p>
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Fai preventivi professionali in pochi minuti. Fatti dire sì più velocemente.</h1>
+        <p className="mt-4 text-lg text-slate-600">Crea, invia e monitora i tuoi preventivi da un unico posto. Pensato per elettricisti, idraulici, installatori, imbianchini e piccole imprese.</p>
         <div className="mt-8 flex gap-3 justify-center">
           <Link href="/registrati" className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold">Crea il tuo primo preventivo</Link>
           <Link href="#come" className="border px-6 py-3 rounded-xl">Scopri come funziona</Link>

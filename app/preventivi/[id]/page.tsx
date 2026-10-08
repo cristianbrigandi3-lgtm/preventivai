@@ -56,8 +56,9 @@ export default async function Page({ params }: { params: { id: string } }) {
           enabled: q.followups?.enabled ?? q.company.followupEnabled,
           day1: q.followups?.day1 ?? q.company.followupDay1,
           day2: q.followups?.day2 ?? q.company.followupDay2,
-          text1: q.followups?.text1 || "", text2: q.followups?.text2 || "",
-          sent1: q.followups?.sent1 ?? false, sent2: q.followups?.sent2 ?? false
+          day3: q.followups?.day3 ?? 10,
+          text1: q.followups?.text1 || "", text2: q.followups?.text2 || "", text3: q.followups?.text3 || "",
+          sent1: q.followups?.sent1 ?? false, sent2: q.followups?.sent2 ?? false, sent3: q.followups?.sent3 ?? false
         }} />
       </div>
       <div className="mt-3 grid md:grid-cols-2 gap-3">

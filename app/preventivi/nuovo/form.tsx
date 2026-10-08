@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { calcTotals, eur } from "@/lib/quotes";
 import { inputCls, btnPrimary, btnGhost, Card } from "@/components/ui";
 
-type Item = { description: string; qty: number; unit: string; unitPrice: number; discountPct: number; vatPct: number };
+type Item = { description: string; qty: number; unit: string; unitPrice: number; discountPct: number; vatPct: number; serviceId?: string };
 const blank: Item = { description: "", qty: 1, unit: "pz", priceUnit: 0 } as any;
 
 export default function NewQuote() {
@@ -22,6 +22,40 @@ export default function NewQuote() {
   const [showPreview, setShowPreview] = useState(false);
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
+  const [svcQ, setSvcQ] = useState("");
+  const [svcRes, setSvcRes] = useState<any[]>([]);
+  const [aiText, setAiText] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+
+  async function searchSvc(v: string) {
+    setSvcQ(v);
+    if (v.trim().length < 2) { setSvcRes([]); return; }
+    try {
+      const r = await fetch(`/api/services?q=${encodeURIComponent(v)}`, { cache: "no-store" });
+      const d = await r.json();
+      setSvcRes(d.services || []);
+    } catch { setSvcRes([]); }
+  }
+
+  function addSvc(s: any) {
+    setItems([...items, { description: s.description ? `${s.name} — ${s.description}` : s.name, qty: 1, unit: s.unit || "pz", unitPrice: s.price || 0, discountPct: 0, vatPct: s.vatPct ?? 22, serviceId: s.id }]);
+    setSvcRes([]); setSvcQ("");
+  }
+
+  async function aiDraft() {
+    setErr(""); setAiBusy(true);
+    try {
+      const r = await fetch("/api/ai/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: aiText }) });
+      let d: any = {};
+      try { d = await r.json(); } catch { throw new Error("AI non disponibile, riprova."); }
+      if (!r.ok) throw new Error(d.error || "AI non disponibile");
+      if (d.subject) setSubject(d.subject);
+      if (d.customer) setNc({ ...nc, business: d.customer });
+      if (d.items?.length) setItems(d.items.map((i: any) => ({ description: i.description, qty: i.qty, unit: i.unit, unitPrice: 0, discountPct: 0, vatPct: 22 })));
+      setErr("Bozza AI inserita: controlla e inserisci i prezzi (a 0 = da definire).");
+    } catch (e: any) { setErr(e.message); }
+    setAiBusy(false);
+  }
 
   useEffect(() => {
     fetch("/api/quotes", { cache: "no-store" })
@@ -73,6 +107,11 @@ export default function NewQuote() {
       <div className="space-y-3">
         {err && <p className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm p-3">{err}</p>}
         <Card>
+          <h2 className="font-semibold">✨ Genera da richiesta cliente <span className="text-xs font-normal text-slate-500">(AI, opz.)</span></h2>
+          <textarea value={aiText} onChange={(e) => setAiText(e.target.value)} rows={3} placeholder="Incolla la richiesta del cliente (es. rifare impianto elettrico 90mq: 6 punti luce, 12 prese...)" className={`${inputCls} mt-2`} />
+          <button onClick={aiDraft} disabled={aiBusy || aiText.trim().length < 20} className={`${btnGhost} mt-2`}>{aiBusy ? "Analisi..." : "Genera bozza"}</button>
+        </Card>
+        <Card>
           <h2 className="font-semibold">Cliente</h2>
           <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={`${inputCls} mt-2`}>
             <option value="">— Nuovo cliente —</option>
@@ -102,6 +141,18 @@ export default function NewQuote() {
         </Card>
         <Card>
           <div className="flex justify-between items-center"><h2 className="font-semibold">Voci</h2><button onClick={() => setItems([...items, { description: "", qty: 1, unit: "pz", unitPrice: 0, discountPct: 0, vatPct: 22 }])} className={btnGhost}>+ Riga</button></div>
+          <div className="mt-2">
+            <input placeholder="Cerca nel catalogo e aggiungi..." value={svcQ} onChange={(e) => searchSvc(e.target.value)} className={inputCls} />
+            {svcRes.length > 0 && (
+              <div className="mt-1 rounded-xl border bg-white divide-y text-sm">
+                {svcRes.map((s) => (
+                  <button key={s.id} onClick={() => addSvc(s)} className="w-full text-left px-3 py-2 hover:bg-slate-50">
+                    <b>{s.name}</b> <span className="text-slate-500">· €{s.price}/{s.unit}{s.category ? ` · ${s.category}` : ""}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="mt-2 space-y-2">
             {items.map((it, i) => (
               <div key={i} className="rounded-xl border p-2 space-y-2">

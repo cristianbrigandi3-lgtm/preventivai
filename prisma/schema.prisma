@@ -46,11 +46,13 @@ model Company {
   followupDay2     Int      @default(5)
   followupText1    String?
   followupText2    String?
+  category         String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   customers Customer[]
   quotes    Quote[]
+  services  Service[]
 }
 
 model Customer {
@@ -180,7 +182,32 @@ model FollowUp {
   text2      String?
   sent1      Boolean  @default(false)
   sent2      Boolean  @default(false)
+  day3       Int      @default(10)
+  text3      String?
+  sent3      Boolean  @default(false)
   updatedAt  DateTime @updatedAt
+}
+
+model Service {
+  id          String    @id @default(cuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  price       Float     @default(0)
+  unit        String    @default("pz")
+  vatPct      Float     @default(22)
+  category    String?
+  cost        Float?
+  durationMin Int?
+  notes       String?
+  useCount    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([companyId])
+  @@index([companyId, category])
 }
 
 model PasswordReset {
