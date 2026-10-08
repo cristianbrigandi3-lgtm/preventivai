@@ -24,8 +24,6 @@ export default function NewQuote() {
   const [saving, setSaving] = useState(false);
   const [svcQ, setSvcQ] = useState("");
   const [svcRes, setSvcRes] = useState<any[]>([]);
-  const [aiText, setAiText] = useState("");
-  const [aiBusy, setAiBusy] = useState(false);
 
   async function searchSvc(v: string) {
     setSvcQ(v);
@@ -40,21 +38,6 @@ export default function NewQuote() {
   function addSvc(s: any) {
     setItems([...items, { description: s.description ? `${s.name} — ${s.description}` : s.name, qty: 1, unit: s.unit || "pz", unitPrice: s.price || 0, discountPct: 0, vatPct: s.vatPct ?? 22, serviceId: s.id }]);
     setSvcRes([]); setSvcQ("");
-  }
-
-  async function aiDraft() {
-    setErr(""); setAiBusy(true);
-    try {
-      const r = await fetch("/api/ai/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: aiText }) });
-      let d: any = {};
-      try { d = await r.json(); } catch { throw new Error("AI non disponibile, riprova."); }
-      if (!r.ok) throw new Error(d.error || "AI non disponibile");
-      if (d.subject) setSubject(d.subject);
-      if (d.customer) setNc({ ...nc, business: d.customer });
-      if (d.items?.length) setItems(d.items.map((i: any) => ({ description: i.description, qty: i.qty, unit: i.unit, unitPrice: 0, discountPct: 0, vatPct: 22 })));
-      setErr("Bozza AI inserita: controlla e inserisci i prezzi (a 0 = da definire).");
-    } catch (e: any) { setErr(e.message); }
-    setAiBusy(false);
   }
 
   useEffect(() => {
@@ -106,11 +89,6 @@ export default function NewQuote() {
     <div className="grid lg:grid-cols-2 gap-4">
       <div className="space-y-3">
         {err && <p className="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm p-3">{err}</p>}
-        <Card>
-          <h2 className="font-semibold">✨ Genera da richiesta cliente <span className="text-xs font-normal text-slate-500">(AI, opz.)</span></h2>
-          <textarea value={aiText} onChange={(e) => setAiText(e.target.value)} rows={3} placeholder="Incolla la richiesta del cliente (es. rifare impianto elettrico 90mq: 6 punti luce, 12 prese...)" className={`${inputCls} mt-2`} />
-          <button onClick={aiDraft} disabled={aiBusy || aiText.trim().length < 20} className={`${btnGhost} mt-2`}>{aiBusy ? "Analisi..." : "Genera bozza"}</button>
-        </Card>
         <Card>
           <h2 className="font-semibold">Cliente</h2>
           <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={`${inputCls} mt-2`}>
