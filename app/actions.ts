@@ -23,13 +23,14 @@ export async function register(form: FormData) {
     password: z.string().min(8).max(128),
     businessName: z.string().trim().min(1).max(150),
     piva: z.string().trim().max(20).optional(),
-    terms: z.literal("on", { errorMap: () => ({ message: "Devi accettare Termini e Privacy" }) })
+    terms: z.literal("on", { errorMap: () => ({ message: "Devi accettare Termini e Privacy" }) }),
+    adult: z.literal("on", { errorMap: () => ({ message: "Devi avere almeno 18 anni" }) })
   }).safeParse({
     name: String(form.get("name") || ""), email: String(form.get("email") || ""),
     password: String(form.get("password") || ""), businessName: String(form.get("businessName") || ""),
-    piva: String(form.get("piva") || ""), terms: String(form.get("terms") || "")
+    piva: String(form.get("piva") || ""), terms: String(form.get("terms") || ""), adult: String(form.get("adult") || "")
   });
-  if (!parsed.success) redirect("/registrati?err=Devi+accettare+Termini+e+Privacy+Policy");
+  if (!parsed.success) redirect("/registrati?err=Devi+accettare+Termini,+Privacy+ed+eta+18+");
   const { name, email, password, businessName } = parsed.data;
   const piva = parsed.data.piva?.trim() || null;
   const exists = await prisma.user.findUnique({ where: { email } });

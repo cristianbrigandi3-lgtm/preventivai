@@ -39,6 +39,10 @@ export function RegisterForm() {
           <input type="checkbox" name="terms" required className="mt-0.5" />
           <span>Ho letto e accetto <a className="text-indigo-600" href="/termini">Termini</a> e <a className="text-indigo-600" href="/privacy">Privacy Policy</a></span>
         </label>
+        <label className="flex items-start gap-2 text-xs text-slate-600">
+          <input type="checkbox" name="adult" required className="mt-0.5" />
+          <span>Dichiaro di avere almeno 18 anni (servizio per professionisti maggiorenni)</span>
+        </label>
         <button className={btnPrimary}>Registrati</button>
       </form>
     </Suspense>
